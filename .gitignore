@@ -1,0 +1,12 @@
+
+# Ignore everything by default
+*
+
+# Allow these directories
+!/src
+!/src/CRTerm
+
+# Allow these file types
+!.gitignore
+!*.java
+!*.md
