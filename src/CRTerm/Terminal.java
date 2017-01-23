@@ -24,10 +24,28 @@ import static org.lwjgl.glfw.GLFW.*;
 public class Terminal {
     private boolean glfwInitialized;
     private long windowID;
+    private Pipeline pipeline;
+    private Grid grid;
+    private Font font;
 
-    Terminal() throws Exception {
+    /**
+     * Constructor.
+     *
+     * @param columns Horizontal character count.
+     * @param rows Vertical character count.
+     * @param color RGB font color. Example: 0x70fe80
+     * @param scanLineBreadth The CRT screen is constructed of vertical scan lines. This parameter tells their breadth or thickness. 1 = no spaces in between. Example value: 0.7d
+     * @param fontThickness This parameter tells how much should the scan lines overreach the pixels of the characters. 0 = stay inside the pixels. Example value: 0.25d
+     * @param verticalCurvature Vertical curvature of the CRT screen.
+     * @param horizontalCurvature Horizontal curvature of the CRT screen.
+     * @throws Exception Exceptions contain error texts.
+     */
+    public Terminal(int columns, int rows, int color, double scanLineBreadth, double fontThickness, double verticalCurvature, double horizontalCurvature) throws Exception {
         this.glfwInitialized = false;
         this.windowID = -1;
+        this.pipeline = null;
+        this.grid = null;
+        this.font = null;
 
         try {
             if (!glfwInit()) {
@@ -35,8 +53,8 @@ public class Terminal {
             }
 
             /*
-			 * Create Window
-			 */
+             * Create Window
+             */
             long primaryMonitor = glfwGetPrimaryMonitor();
             GLFWVidMode mode = glfwGetVideoMode(primaryMonitor);
             glfwWindowHint(GLFW_STENCIL_BITS, 4);
@@ -46,34 +64,64 @@ public class Terminal {
             glfwShowWindow(this.windowID);
 
             /*
-			 * Initialize OpenGL
-			 */
+             * Initialize OpenGL
+             */
             GL.createCapabilities();
+            GL11.glEnable(GL13.GL_MULTISAMPLE);
             GL11.glMatrixMode(GL11.GL_PROJECTION);
             GL11.glLoadIdentity();
-            GL11.glFrustum(- mode.width() / 2, mode.width() / 2, - mode.height() / 2, mode.height() / 2, 6, 1024);
-
-            if (GL11.glGetError() != GL11.GL_NO_ERROR) {
-                throw new Exception("Setting up perspective projection failed.");
-            }
-
+            GL11.glFrustum(- 200, 200, - 150, 150, 10, 1000);
             GL11.glMatrixMode(GL11.GL_MODELVIEW);
             GL11.glLoadIdentity();
 
-            GL11.glScalef(0.9f, 1.15f, 1);
-            GL11.glTranslatef(-960, -540, -8f);
+            //GL11.glScalef(0.9f, 1.15f, 1);
+            GL11.glTranslatef(-200, -150, -12f);
 
-            GL11.glEnable(GL13.GL_MULTISAMPLE);
+            /*
+                Create shader pipeline
+             */
+            this.pipeline = new Pipeline();
+            this.pipeline.addShader("vertex_shader.txt",  GL20.GL_VERTEX_SHADER);
+            this.pipeline.addShader("fragment_shader.txt",  GL20.GL_FRAGMENT_SHADER);
+            this.pipeline.link();
 
+            /*
+                Create vertex arrays
+             */
+            grid = new Grid(400d, 300d, columns, rows, verticalCurvature, horizontalCurvature);
 
+            /*
+                Create texture
+             */
+            this.font = new Font(Kaypro_II_font.get(), color, scanLineBreadth, fontThickness);
 
         } catch (Exception ex) {
             this.close();
             throw(ex);
         }
+
+        this.close();
     }
 
+    /**
+     * Close all OpenGL resources.
+     */
     public void close() {
+        if (this.font != null) {
+            this.font.close();
+            this.font = null;
+        }
+
+        if (this.grid != null) {
+            this.grid.close();
+            this.grid = null;
+        }
+
+        if (this.pipeline != null) {
+            this.pipeline.close();
+            this.pipeline = null;
+        }
+
         if (this.windowID > -1) {
             glfwDestroyWindow(this.windowID);
             this.windowID = -1;
@@ -83,5 +131,33 @@ public class Terminal {
             glfwTerminate();
             this.glfwInitialized = false;
         }
+    }
+
+    /**
+     * Render screen.
+     */
+    public void draw() {
+        if (this.font == null) {
+            return;
+        }
+
+        GL11.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+
+        GL20.glUseProgram(this.pipeline.getProgramID());
+
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.font.getTextureID());
+
+        this.grid.draw();
+
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        GL20.glUseProgram(0);
+
+        glfwSwapBuffers(this.windowID);
+    }
+
+    public long getWindowID() {
+        return this.windowID;
     }
 }

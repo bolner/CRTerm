@@ -2,11 +2,14 @@
 # Ignore everything by default
 *
 
-# Allow these directories
+# Allow directories
 !/src
 !/src/CRTerm
+!/src/testApp
+!/res
 
-# Allow these file types
+# Allow file types
 !.gitignore
 !*.java
 !*.md
+!/res/*.txt

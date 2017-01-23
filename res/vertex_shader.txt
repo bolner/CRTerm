@@ -1,0 +1,17 @@
+#version 150 core
+
+in vec4 in_Position;
+in vec2 in_TextureCoord;
+in float in_Number;
+in float in_Char;
+
+out vec2 pass_TextureCoord;
+out float pass_Number;
+out float pass_Char;
+
+void main(void) {
+	gl_Position = gl_ProjectionMatrix * gl_ModelViewMatrix * gl_Vertex;
+	pass_TextureCoord = in_TextureCoord;
+	pass_Number = in_Number;
+	pass_Char = in_Char;
+}

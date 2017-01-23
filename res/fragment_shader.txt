@@ -1,0 +1,18 @@
+#version 150 core
+
+uniform sampler2D texture_diffuse;
+in vec2 pass_TextureCoord;
+in float pass_Number;
+in float pass_Char;
+
+out vec4 out_Color;
+
+void main(void) {
+    float x = float(int(pass_Char) % 16) / 16 + 0.015625;
+    float y = float(int(pass_Char / 16)) / 8;
+
+	out_Color = texture(texture_diffuse, vec2(
+        x + pass_TextureCoord.x * 0.046875,
+        y + pass_TextureCoord.y / 8
+	));
+}
