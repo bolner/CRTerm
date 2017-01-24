@@ -29,7 +29,7 @@ public class Terminal {
     private Font font;
 
     /**
-     * Constructor.
+     * Initialize OpenGL, the resources, and go fullscreen.
      *
      * @param columns Horizontal character count.
      * @param rows Vertical character count.
@@ -57,9 +57,11 @@ public class Terminal {
              */
             long primaryMonitor = glfwGetPrimaryMonitor();
             GLFWVidMode mode = glfwGetVideoMode(primaryMonitor);
+            int width = mode.width();
+            int height = mode.height();
             glfwWindowHint(GLFW_STENCIL_BITS, 4);
             glfwWindowHint(GLFW_SAMPLES, 4);
-            this.windowID = glfwCreateWindow(mode.width(), mode.height(), "Example OpenGL App", primaryMonitor, 0);
+            this.windowID = glfwCreateWindow(width, height, "Example OpenGL App", primaryMonitor, 0);
             glfwMakeContextCurrent(this.windowID);
             glfwShowWindow(this.windowID);
 
@@ -68,14 +70,7 @@ public class Terminal {
              */
             GL.createCapabilities();
             GL11.glEnable(GL13.GL_MULTISAMPLE);
-            GL11.glMatrixMode(GL11.GL_PROJECTION);
-            GL11.glLoadIdentity();
-            GL11.glFrustum(- 200, 200, - 150, 150, 10, 1000);
-            GL11.glMatrixMode(GL11.GL_MODELVIEW);
-            GL11.glLoadIdentity();
-
-            //GL11.glScalef(0.9f, 1.15f, 1);
-            GL11.glTranslatef(-200, -150, -12f);
+            this.setupProjection(width, height);
 
             /*
                 Create shader pipeline
@@ -99,8 +94,6 @@ public class Terminal {
             this.close();
             throw(ex);
         }
-
-        this.close();
     }
 
     /**
@@ -157,7 +150,35 @@ public class Terminal {
         glfwSwapBuffers(this.windowID);
     }
 
+    /**
+     * Returns the LWJGL GLFW Window ID, which can be used for calling LWJGL/GLFW functions.
+     * @return GLFW Window ID
+     */
     public long getWindowID() {
         return this.windowID;
+    }
+
+    /**
+     * Set up the projection matrix.
+     *
+     * @param windowWidth The width of the screen.
+     * @param windowHeight The height of the screen.
+     */
+    private void setupProjection(double windowWidth, double windowHeight) {
+        GL11.glMatrixMode(GL11.GL_PROJECTION);
+        GL11.glLoadIdentity();
+        double ratio = windowHeight / windowWidth;
+        GL11.glFrustum(- 200d, 200d, - 200d * ratio, 200d * ratio, 10, 1000);
+        GL11.glMatrixMode(GL11.GL_MODELVIEW);
+        GL11.glLoadIdentity();
+
+        double magnify = 1d;
+
+        if (ratio < 1) {
+            magnify = ratio * 1.3d;
+        }
+
+        GL11.glScaled(1d * magnify, 1d * magnify, 1);
+        GL11.glTranslated(-200d, -150d, -12d);
     }
 }

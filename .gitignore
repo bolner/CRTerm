@@ -7,9 +7,16 @@
 !/src/CRTerm
 !/src/testApp
 !/res
+!/doc
+!/doc/CRTerm
+!/doc/index-files
 
 # Allow file types
 !.gitignore
 !*.java
 !*.md
 !/res/*.txt
+!*.html
+!/doc/*.js
+!/doc/*.css
+!package-list
