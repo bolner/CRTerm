@@ -30,9 +30,9 @@ class Font {
     private int textureID;
 
     /**
-     * Create a Font as an 1024x512 texture atlas, with 16*8 = 128 characters.
+     * Create a Font as a 1024x512 texture atlas, with 16*8 = 128 characters.
      *
-     * @param font 8x8 pixel data of characters. One byte is one vertical line. 128 characters.
+     * @param font 8x8 pixel data of characters. One byte is one horizontal line. 128 characters.
      * @param color RGB font color. Example: 0x70fe80
      * @param scanLineBreadth The CRT screen is constructed of vertical scan lines. This parameter tells their breadth or thickness. 1 = no spaces in between. Example value: 0.7d
      * @param fontThickness This parameter tells how much should the scan lines overreach the pixels of the characters. 0 = stay inside the pixels. Example value: 0.25d
@@ -85,7 +85,7 @@ class Font {
                         startx = x * 64.0d + (starta + 1.5d) * dx;
                         lengthx = (enda - starta) * dx;
 
-                        // if overreach=0 then it should be a single circle
+                        // if fontThickness=0 then it should be a single circle
 
                         ellipse.setFrame(startx - scanLineBreadth / 2.0d - fontThickness, liney + (dy - scanLineBreadth) / 2.0d, scanLineBreadth, scanLineBreadth);
                         g2d.fill(ellipse);
