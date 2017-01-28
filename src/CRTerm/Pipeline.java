@@ -33,14 +33,6 @@ class Pipeline {
      */
     Pipeline() {
         this.programID = GL20.glCreateProgram();
-
-        /*
-            Shader inputs
-         */
-        GL20.glBindAttribLocation(this.getProgramID(), 0, "in_Position");
-        GL20.glBindAttribLocation(this.getProgramID(), 1, "in_TextureCoord");
-        GL20.glBindAttribLocation(this.getProgramID(), 2, "in_Number");
-        GL20.glBindAttribLocation(this.getProgramID(), 3, "in_Char");
     }
 
     /**
@@ -53,6 +45,16 @@ class Pipeline {
         }
 
         glDeleteProgram(this.programID);
+    }
+
+    /**
+     * Define shader input.
+     *
+     * @param index The location of the input.
+     * @param name The variable name used in the shader code.
+     */
+    void bindAttribLocation(int index, CharSequence name) {
+        GL20.glBindAttribLocation(this.programID, index, name);
     }
 
     /**
@@ -104,6 +106,11 @@ class Pipeline {
 
         if (GL11.glGetError() != GL11.GL_NO_ERROR) {
             throw new Exception("Linking shader program failed.");
+        }
+
+        int linked = glGetProgrami(this.programID, GL_LINK_STATUS);
+        if (linked == 0) {
+            throw new Exception("Linking program failed. (pipeline");
         }
 
         GL20.glValidateProgram(this.programID);

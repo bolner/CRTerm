@@ -15,7 +15,8 @@
 !.gitignore
 !*.java
 !*.md
-!/res/*.txt
+!/res/*.frag
+!/res/*.vert
 !*.html
 !/doc/*.js
 !/doc/*.css

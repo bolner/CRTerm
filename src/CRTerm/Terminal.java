@@ -27,6 +27,8 @@ public class Terminal {
     private Pipeline pipeline;
     private Grid grid;
     private Font font;
+    private Characters characters;
+    private long lastFrameTime = System.nanoTime();
 
     /**
      * Initialize OpenGL, the resources, and go fullscreen.
@@ -46,8 +48,13 @@ public class Terminal {
         this.pipeline = null;
         this.grid = null;
         this.font = null;
+        this.characters = null;
 
         try {
+            if (columns * rows > 4096) {
+                throw new Exception("The number of characters cannot be more than 4096. Please change the 'columns' or the 'rows' parameter.");
+            }
+
             if (!glfwInit()) {
                 throw new Exception("Cannot init GLFW.");
             }
@@ -76,9 +83,17 @@ public class Terminal {
                 Create shader pipeline
              */
             this.pipeline = new Pipeline();
-            this.pipeline.addShader("vertex_shader.txt",  GL20.GL_VERTEX_SHADER);
-            this.pipeline.addShader("fragment_shader.txt",  GL20.GL_FRAGMENT_SHADER);
+            this.pipeline.bindAttribLocation(0, "in_Position");
+            this.pipeline.bindAttribLocation(1, "in_TextureCoord");
+            this.pipeline.bindAttribLocation(2, "in_Number");
+            this.pipeline.addShader("grid_vertex_shader.vert",  GL20.GL_VERTEX_SHADER);
+            this.pipeline.addShader("grid_fragment_shader.frag",  GL20.GL_FRAGMENT_SHADER);
             this.pipeline.link();
+
+            /*
+                Uniform buffer for the character data.
+             */
+            this.characters = new Characters(columns, rows, this.pipeline.getProgramID());
 
             /*
                 Create vertex arrays
@@ -115,6 +130,11 @@ public class Terminal {
             this.pipeline = null;
         }
 
+        if (this.characters != null) {
+            this.characters.close();
+            this.characters = null;
+        }
+
         if (this.windowID > -1) {
             glfwDestroyWindow(this.windowID);
             this.windowID = -1;
@@ -129,10 +149,12 @@ public class Terminal {
     /**
      * Render screen.
      */
-    public void draw() {
+    public void renderFrame() throws Exception {
         if (this.font == null) {
-            return;
+            throw new Exception("renderFrame() was called on a closed Terminal instance.");
         }
+
+        // check for client are size changes (resize)
 
         GL11.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
@@ -146,8 +168,6 @@ public class Terminal {
 
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
         GL20.glUseProgram(0);
-
-        glfwSwapBuffers(this.windowID);
     }
 
     /**
@@ -178,7 +198,71 @@ public class Terminal {
             magnify = ratio * 1.3d;
         }
 
-        GL11.glScaled(1d * magnify, 1d * magnify, 1);
-        GL11.glTranslated(-200d, -150d, -12d);
+        GL11.glScaled(1.2d * magnify, 1.2d * magnify, 1);
+        GL11.glTranslated(-200d, -150d, -14d);
+    }
+
+    /**
+     * Makes the current thread sleep to maintain the given frame rate.
+     *
+     * @param FPS A frame rate in frame/seconds to be maintained.
+     * @throws InterruptedException Thrown if any thread has interrupted the current thread.
+     */
+    public void keepFPS(long FPS) throws InterruptedException {
+        long frameTime = 1000000000L / FPS; // nanoseconds
+
+        while (System.nanoTime() - this.lastFrameTime < frameTime) {
+            Thread.sleep(1L);
+        }
+
+        this.lastFrameTime = System.nanoTime();
+    }
+
+    /**
+     * @return Returns a reference for the internal character array, which can be used to directly manipulate the character data. Call uploadCharacters() after the modifications.
+     */
+    public char[] getCharacterArray() {
+        return this.characters.getArray();
+    }
+
+    /**
+     * Call this after modifying the char array. It uploads the changes to the GPU.
+     */
+    public void uploadCharacterArray() {
+        this.characters.uploadCharacters();
+    }
+
+    /**
+     * Update the characters of the terminal.
+     *
+     * @param characters Starting at the top-left corner.
+     */
+    public void setCharacters(char[] characters) {
+        this.characters.setCharacters(characters);
+    }
+
+    /**
+     * Update a character region of the terminal.
+     *
+     * @param x Starting position X-coordinate. The top-left corner is (0, 0).
+     * @param y Starting position Y-coordinate. The top-left corner is (0, 0).
+     * @param characters Start writing these characters out, starting from the given (x, y) coordinates.
+     */
+    public void setCharacters(int x, int y, char[] characters) {
+        this.characters.setCharacters(x, y, characters);
+    }
+
+    /**
+     * Scrolls the text upwards and leaves an empty line on the bottom.
+     */
+    public void scrollUp() {
+        this.characters.scrollUp();
+    }
+
+    /**
+     * Rotates the text upwards. The first line becomes the last.
+     */
+    public void rotateUp() {
+        this.characters.rotateUp();
     }
 }
