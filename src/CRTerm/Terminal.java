@@ -219,7 +219,7 @@ public class Terminal {
     }
 
     /**
-     * @return Returns a reference for the internal character array, which can be used to directly manipulate the character data. Call uploadCharacters() after the modifications.
+     * @return Returns a reference for the internal character array, which can be used to directly manipulate the character data. Call uploadCharacterArray() after the modifications.
      */
     public char[] getCharacterArray() {
         return this.characters.getArray();
@@ -233,7 +233,7 @@ public class Terminal {
     }
 
     /**
-     * Update the characters of the terminal.
+     * Update the characters of the terminal. The size of the given array can be arbitrary.
      *
      * @param characters Starting at the top-left corner.
      */

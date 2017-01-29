@@ -17,7 +17,6 @@ limitations under the License.
 package CRTerm;
 
 import java.io.*;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import org.lwjgl.opengl.*;
@@ -68,21 +67,28 @@ class Pipeline {
         StringBuilder shaderSource = new StringBuilder();
         int shaderID = 0;
 
-        ClassLoader classLoader = getClass().getClassLoader();
-        URL resource = classLoader.getResource(filePath);
-        if (resource == null) {
+        InputStream stream = getClass().getClassLoader().getResourceAsStream(filePath);
+        if (stream == null) {
             throw new Exception("Resource not found: " + filePath);
         }
 
+        byte[] buffer = new byte[1024];
+        int read;
+
         try {
-            BufferedReader reader = new BufferedReader(new FileReader(resource.getFile()));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                shaderSource.append(line).append("\n");
+            while (true) {
+                read = stream.read(buffer, 0, 1024);
+                if (read == -1) {
+                    break;
+                }
+
+                String text = new String(buffer, 0, read);
+                shaderSource.append(text);
             }
-            reader.close();
+
+            stream.close();
         } catch (IOException e) {
-            throw new Exception("Unable to read file: " + resource.getFile());
+            throw new Exception("Unable to read file: " + filePath + ". Error: " + e.getMessage());
         }
 
         shaderID = GL20.glCreateShader(shaderType);
