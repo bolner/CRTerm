@@ -148,7 +148,7 @@ class Font {
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
 
         if (GL11.glGetError() != GL11.GL_NO_ERROR) {
-            throw new Exception("Creating texture failed.");
+            throw new Exception("Creating texture failed. (Font)");
         }
 
         return result;

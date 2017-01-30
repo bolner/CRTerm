@@ -27,7 +27,7 @@ public class Main {
         Terminal term = null;
 
         try {
-            term = new Terminal(80, 25, 0x00FF00, 0.6d, 0.25d, 0.3d, 0.9d);
+            term = new Terminal(80, 25, 0x00FF00, 0.6d, 0.25d, 0.8d, 1.9d);
             term.setCharacters(Main.testText.toCharArray());
             term.uploadCharacterArray();
 
@@ -36,7 +36,7 @@ public class Main {
             while(true) {
                 term.renderFrame();
 
-                term.keepFPS(60);   // This should be directly before the glfwSwapBuffers call.
+                term.keepFPS(60);   // This should be called directly before the glfwSwapBuffers function.
                 glfwSwapBuffers(term.getWindowID());
 
                 /*

@@ -116,7 +116,7 @@ class Pipeline {
 
         int linked = glGetProgrami(this.programID, GL_LINK_STATUS);
         if (linked == 0) {
-            throw new Exception("Linking program failed. (pipeline");
+            throw new Exception("Linking program failed.");
         }
 
         GL20.glValidateProgram(this.programID);

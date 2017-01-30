@@ -24,11 +24,14 @@ import static org.lwjgl.glfw.GLFW.*;
 public class Terminal {
     private boolean glfwInitialized;
     private long windowID;
-    private Pipeline pipeline;
+    private Pipeline fontPipeline;
     private Grid grid;
     private Font font;
     private Characters characters;
     private long lastFrameTime = System.nanoTime();
+    private PingPongBuffer pingPongBuffer;
+    private Pipeline bloomPipeline;
+    private WindowSize windowSize;
 
     /**
      * Initialize OpenGL, the resources, and go fullscreen.
@@ -45,10 +48,13 @@ public class Terminal {
     public Terminal(int columns, int rows, int color, double scanLineBreadth, double fontThickness, double verticalCurvature, double horizontalCurvature) throws Exception {
         this.glfwInitialized = false;
         this.windowID = -1;
-        this.pipeline = null;
+        this.fontPipeline = null;
         this.grid = null;
         this.font = null;
         this.characters = null;
+        this.pingPongBuffer = null;
+        this.bloomPipeline = null;
+        this.windowSize = null;
 
         try {
             if (columns * rows > 4096) {
@@ -66,6 +72,7 @@ public class Terminal {
             GLFWVidMode mode = glfwGetVideoMode(primaryMonitor);
             int width = mode.width();
             int height = mode.height();
+            glfwWindowHint(GLFW_RESIZABLE, 0);
             glfwWindowHint(GLFW_STENCIL_BITS, 4);
             glfwWindowHint(GLFW_SAMPLES, 4);
             this.windowID = glfwCreateWindow(width, height, "Example OpenGL App", primaryMonitor, 0);
@@ -77,31 +84,46 @@ public class Terminal {
              */
             GL.createCapabilities();
             GL11.glEnable(GL13.GL_MULTISAMPLE);
-            this.setupProjection(width, height);
+            this.windowSize = new WindowSize(this.windowID);
 
             /*
-                Create shader pipeline
+                Create ping-pong buffer for multi-pass post-processing
              */
-            this.pipeline = new Pipeline();
-            this.pipeline.bindAttribLocation(0, "in_Position");
-            this.pipeline.bindAttribLocation(1, "in_TextureCoord");
-            this.pipeline.bindAttribLocation(2, "in_Number");
-            this.pipeline.addShader("grid_vertex_shader.vert",  GL20.GL_VERTEX_SHADER);
-            this.pipeline.addShader("grid_fragment_shader.frag",  GL20.GL_FRAGMENT_SHADER);
-            this.pipeline.link();
+            this.pingPongBuffer = new PingPongBuffer(width, height);
+
+            /*
+                Create font-rendering shader pipeline.
+             */
+            this.fontPipeline = new Pipeline();
+            this.fontPipeline.bindAttribLocation(0, "in_Position");
+            this.fontPipeline.bindAttribLocation(1, "in_TextureCoord");
+            this.fontPipeline.bindAttribLocation(2, "in_Number");
+            this.fontPipeline.addShader("grid_vertex_shader.vert",  GL20.GL_VERTEX_SHADER);
+            this.fontPipeline.addShader("grid_fragment_shader.frag",  GL20.GL_FRAGMENT_SHADER);
+            this.fontPipeline.link();
 
             /*
                 Uniform buffer for the character data.
              */
-            this.characters = new Characters(columns, rows, this.pipeline.getProgramID());
+            this.characters = new Characters(columns, rows, this.fontPipeline.getProgramID());
 
             /*
-                Create vertex arrays
+                Create bloom post-processing shader pipeline.
+             */
+            this.bloomPipeline = new Pipeline();
+            this.bloomPipeline.bindAttribLocation(0, "in_Position");
+            this.bloomPipeline.bindAttribLocation(1, "in_TextureCoord");
+            this.bloomPipeline.addShader("bloom_vertex_shader.vert",  GL20.GL_VERTEX_SHADER);
+            this.bloomPipeline.addShader("bloom_fragment_shader.frag",  GL20.GL_FRAGMENT_SHADER);
+            this.bloomPipeline.link();
+
+            /*
+                Create vertex arrays for the screen curvature.
              */
             grid = new Grid(400d, 300d, columns, rows, verticalCurvature, horizontalCurvature);
 
             /*
-                Create texture
+                Create texture atlas for the Font
              */
             this.font = new Font(Kaypro_II_font.get(), color, scanLineBreadth, fontThickness);
 
@@ -125,9 +147,19 @@ public class Terminal {
             this.grid = null;
         }
 
-        if (this.pipeline != null) {
-            this.pipeline.close();
-            this.pipeline = null;
+        if (this.fontPipeline != null) {
+            this.fontPipeline.close();
+            this.fontPipeline = null;
+        }
+
+        if (this.bloomPipeline != null) {
+            this.bloomPipeline.close();
+            this.bloomPipeline = null;
+        }
+
+        if (this.pingPongBuffer != null) {
+            this.pingPongBuffer.close();
+            this.pingPongBuffer = null;
         }
 
         if (this.characters != null) {
@@ -154,17 +186,49 @@ public class Terminal {
             throw new Exception("renderFrame() was called on a closed Terminal instance.");
         }
 
-        // check for client are size changes (resize)
+        if (this.windowSize.checkSize()) {
+            /*
+                The size of the client area changed, the framebuffers need to get resized.
+             */
+            if (this.windowSize.getWidth() > 10 && this.windowSize.getHeight() > 10) {
+                this.pingPongBuffer.resize();
+            }
+        }
+
+        // Skip render if the client area is too small
+        if (this.windowSize.getWidth() < 10 || this.windowSize.getHeight() < 10) {
+            return;
+        }
+
+        /*
+            Render text to framebuffer object
+         */
+        this.pingPongBuffer.bindFrameBuffer();
 
         GL11.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
-        GL20.glUseProgram(this.pipeline.getProgramID());
+        GL20.glUseProgram(this.fontPipeline.getProgramID());
 
         GL13.glActiveTexture(GL13.GL_TEXTURE0);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.font.getTextureID());
 
+        this.grid.setupProjection(this.windowSize.getWidth(), this.windowSize.getHeight());
         this.grid.draw();
+
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        GL20.glUseProgram(0);
+
+        /*
+            Bloom (Render result directly to screen)
+         */
+        this.pingPongBuffer.unBindFrameBuffer();
+
+        GL20.glUseProgram(this.bloomPipeline.getProgramID());
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.pingPongBuffer.getFrontColorBufer());   // binding renderbuffer as texture?
+
+        this.pingPongBuffer.setupProjection(this.windowSize.getWidth(), this.windowSize.getHeight());
+        this.pingPongBuffer.draw();
 
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
         GL20.glUseProgram(0);
@@ -176,30 +240,6 @@ public class Terminal {
      */
     public long getWindowID() {
         return this.windowID;
-    }
-
-    /**
-     * Set up the projection matrix.
-     *
-     * @param windowWidth The width of the screen.
-     * @param windowHeight The height of the screen.
-     */
-    private void setupProjection(double windowWidth, double windowHeight) {
-        GL11.glMatrixMode(GL11.GL_PROJECTION);
-        GL11.glLoadIdentity();
-        double ratio = windowHeight / windowWidth;
-        GL11.glFrustum(- 200d, 200d, - 200d * ratio, 200d * ratio, 10, 1000);
-        GL11.glMatrixMode(GL11.GL_MODELVIEW);
-        GL11.glLoadIdentity();
-
-        double magnify = 1d;
-
-        if (ratio < 1) {
-            magnify = ratio * 1.3d;
-        }
-
-        GL11.glScaled(1.2d * magnify, 1.2d * magnify, 1);
-        GL11.glTranslated(-200d, -150d, -14d);
     }
 
     /**

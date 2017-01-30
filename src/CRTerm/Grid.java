@@ -110,4 +110,28 @@ class Grid {
     void close() {
         GL15.glDeleteBuffers(this.vertexBuffer);
     }
+
+    /**
+     * Set up the projection matrix for the grid.
+     *
+     * @param windowWidth The width of the screen.
+     * @param windowHeight The height of the screen.
+     */
+    void setupProjection(double windowWidth, double windowHeight) {
+        GL11.glMatrixMode(GL11.GL_PROJECTION);
+        GL11.glLoadIdentity();
+        double ratio = windowHeight / windowWidth;
+        GL11.glFrustum(- 200d, 200d, - 200d * ratio, 200d * ratio, 10, 1000);
+        GL11.glMatrixMode(GL11.GL_MODELVIEW);
+        GL11.glLoadIdentity();
+
+        double magnify = 1d;
+
+        if (ratio < 1) {
+            magnify = ratio * 1.3d;
+        }
+
+        GL11.glScaled(1.2d * magnify, 1.2d * magnify, 1);
+        GL11.glTranslated(-200d, -150d, -14d);
+    }
 }

@@ -132,7 +132,7 @@ class Characters {
      *
      * @param x Starting position X-coordinate.
      * @param y Starting position Y-coordinate.
-     * @param characters Start writing these characters out, starting from the given (x, y) coordinates.
+     * @param characters Output these characters, starting from the given (x, y) coordinates.
      */
     void setCharacters(int x, int y, char[] characters) {
         int destPos = y * this.columns + x;
