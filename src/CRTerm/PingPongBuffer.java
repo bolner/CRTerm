@@ -29,6 +29,7 @@ class PingPongBuffer {
     private int vertexBuffer;
 
     PingPongBuffer(int width, int height) throws Exception {
+        this.vertexBuffer = -1;
         this.frameBuffers = new int[2];
         this.frameBuffers[0] = -1;
         this.frameBuffers[1] = -1;
@@ -52,10 +53,15 @@ class PingPongBuffer {
          */
         for(int i = 0; i < 2; i++) {
             this.frameBuffers[i] = GL30.glGenFramebuffers();
+
+            if (this.frameBuffers[i] < 1) {
+                throw new Exception("Unable to create framebuffer. (PingPongBuffer)");
+            }
+
             GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.frameBuffers[i]);
 
             if (this.frameBuffers[i] < 1) {
-                throw new Exception("Unable to create framebuffer.");
+                throw new Exception("Unable to create framebuffer. (PingPongBuffer)");
             }
 
             /*
@@ -116,21 +122,23 @@ class PingPongBuffer {
         GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 20, 0);	// mark vertex coordinates
         GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, 20, 12);	// mark texture coordinates
 
-        GL30.glBindVertexArray(0);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
     }
 
     /**
      * Release OpenGL resources
      */
     void close() {
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+
         for(int i = 0; i < 2; i++) {
             if (this.colorBuffers[i] > -1) {
-                GL30.glDeleteRenderbuffers(this.colorBuffers[i]);
+                GL11.glDeleteTextures(this.colorBuffers[i]);
                 this.colorBuffers[i] = -1;
             }
 
             if (this.depthBuffers[i] > -1) {
-                GL30.glDeleteRenderbuffers(this.depthBuffers[i]);
+                GL11.glDeleteTextures(this.depthBuffers[i]);
                 this.depthBuffers[i] = -1;
             }
         }
@@ -141,29 +149,32 @@ class PingPongBuffer {
                 this.frameBuffers[i] = -1;
             }
         }
+
+        if (this.vertexBuffer > -1) {
+            GL15.glDeleteBuffers(this.vertexBuffer);
+            this.vertexBuffer = -1;
+        }
     }
 
     /**
      * @return The ID of the texture in the front framebuffer.
      */
-    int getFrontColorBufer() {
+    int getFrontTexture() {
         return this.colorBuffers[this.frontBufferIndex];
     }
 
     /**
      * @return The ID of the texture in the back framebuffer.
      */
-    int getBackColorBuffer() {
+    int getBackTexture() {
         return this.colorBuffers[1 - this.frontBufferIndex];
     }
 
     /**
-     * Switches the front and the back framebuffer. Unbinds the old and binds the new. Makes the now back texture directly accessible.
+     * Switches the front and the back framebuffer.
      */
     void switchBuffers() {
-        this.unBindFrameBuffer();
         this.frontBufferIndex = 1 - frontBufferIndex;
-        this.bindFrameBuffer();
     }
 
     /**
@@ -210,7 +221,7 @@ class PingPongBuffer {
     /**
      * Resizes the framebuffers.
      */
-    void resize() {
+    void resize(int width, int height) {
         // todo
     }
 }

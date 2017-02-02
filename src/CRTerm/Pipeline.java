@@ -23,6 +23,9 @@ import org.lwjgl.opengl.*;
 import static org.lwjgl.opengl.GL20.*;
 
 
+/**
+ * Shader pipeline
+ */
 class Pipeline {
     private int programID;
     private List<Integer> shaders = new ArrayList<Integer>();
@@ -92,6 +95,12 @@ class Pipeline {
         }
 
         shaderID = GL20.glCreateShader(shaderType);
+        if (shaderID < 1) {
+            throw new Exception("Unable to create shader. (Pipeline)");
+        }
+
+        this.shaders.add(shaderID);
+
         GL20.glShaderSource(shaderID, shaderSource);
         GL20.glCompileShader(shaderID);
 
@@ -100,8 +109,6 @@ class Pipeline {
         }
 
         GL20.glAttachShader(this.programID, shaderID);
-
-        this.shaders.add(shaderID);
     }
 
     /**

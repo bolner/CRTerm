@@ -94,10 +94,10 @@ class Font {
                         g2d.fill(ellipse);
 
                         rectangle.setFrame(
-                                startx - fontThickness,
-                                liney + (dy - scanLineBreadth) / 2.0d,
-                                lengthx + fontThickness * 2.0d,
-                                scanLineBreadth
+                            startx - fontThickness,
+                            liney + (dy - scanLineBreadth) / 2.0d,
+                            lengthx + fontThickness * 2.0d,
+                            scanLineBreadth
                         );
                         g2d.fill(rectangle);
 
@@ -129,12 +129,12 @@ class Font {
 
         int[] data = new int[width * height];
         for (int i = 0; i < width * height; i++) {
-            int a = (pixels[i] & 0xff000000) >> 24;
+            int a = pixels[i] & 0xff000000;
             int r = (pixels[i] & 0xff0000) >> 16;
-            int g = (pixels[i] & 0xff00) >> 8;
-            int b = (pixels[i] & 0xff);
+            int g = pixels[i] & 0xff00;
+            int b = pixels[i] & 0xff;
 
-            data[i] = a << 24 | b << 16 | g << 8 | r;
+            data[i] = a | b << 16 | g | r;
         }
 
         IntBuffer intBuffer1 = ByteBuffer.allocateDirect(data.length << 2).order(ByteOrder.nativeOrder()).asIntBuffer();

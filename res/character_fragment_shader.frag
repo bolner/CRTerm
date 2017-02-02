@@ -17,11 +17,22 @@ limitations under the License.
 #version 150 core
 
 uniform sampler2D texture_diffuse;
+uniform int characters[4096];
+
 in vec2 pass_TextureCoord;
+in float pass_Number;
 
 out vec4 out_Color;
 
 
 void main(void) {
-	out_Color = texture(texture_diffuse, pass_TextureCoord);
+    int char = characters[int(pass_Number)];
+
+    float x = float(char % 16) / 16 + 0.015625;
+    float y = float(char / 16) / 8;
+
+	out_Color = texture(texture_diffuse, vec2(
+        x + pass_TextureCoord.x * 0.046875,
+        y + pass_TextureCoord.y / 8
+	));
 }

@@ -25,6 +25,8 @@ public class Terminal {
     private boolean glfwInitialized;
     private long windowID;
     private Pipeline fontPipeline;
+    private Pipeline copyPipeline;
+    private Pipeline mixPipeline;
     private Grid grid;
     private Font font;
     private Characters characters;
@@ -32,6 +34,7 @@ public class Terminal {
     private PingPongBuffer pingPongBuffer;
     private Pipeline bloomPipeline;
     private WindowSize windowSize;
+    private PingPongBuffer mixBuffer;
 
     /**
      * Initialize OpenGL, the resources, and go fullscreen.
@@ -49,88 +52,116 @@ public class Terminal {
         this.glfwInitialized = false;
         this.windowID = -1;
         this.fontPipeline = null;
+        this.copyPipeline = null;
+        this.mixPipeline = null;
         this.grid = null;
         this.font = null;
         this.characters = null;
         this.pingPongBuffer = null;
         this.bloomPipeline = null;
         this.windowSize = null;
+        this.mixBuffer = null;
 
-        try {
-            if (columns * rows > 4096) {
-                throw new Exception("The number of characters cannot be more than 4096. Please change the 'columns' or the 'rows' parameter.");
-            }
-
-            if (!glfwInit()) {
-                throw new Exception("Cannot init GLFW.");
-            }
-
-            /*
-             * Create Window
-             */
-            long primaryMonitor = glfwGetPrimaryMonitor();
-            GLFWVidMode mode = glfwGetVideoMode(primaryMonitor);
-            int width = mode.width();
-            int height = mode.height();
-            glfwWindowHint(GLFW_RESIZABLE, 0);
-            glfwWindowHint(GLFW_STENCIL_BITS, 4);
-            glfwWindowHint(GLFW_SAMPLES, 4);
-            this.windowID = glfwCreateWindow(width, height, "Example OpenGL App", primaryMonitor, 0);
-            glfwMakeContextCurrent(this.windowID);
-            glfwShowWindow(this.windowID);
-
-            /*
-             * Initialize OpenGL
-             */
-            GL.createCapabilities();
-            GL11.glEnable(GL13.GL_MULTISAMPLE);
-            this.windowSize = new WindowSize(this.windowID);
-
-            /*
-                Create ping-pong buffer for multi-pass post-processing
-             */
-            this.pingPongBuffer = new PingPongBuffer(width, height);
-
-            /*
-                Create font-rendering shader pipeline.
-             */
-            this.fontPipeline = new Pipeline();
-            this.fontPipeline.bindAttribLocation(0, "in_Position");
-            this.fontPipeline.bindAttribLocation(1, "in_TextureCoord");
-            this.fontPipeline.bindAttribLocation(2, "in_Number");
-            this.fontPipeline.addShader("grid_vertex_shader.vert",  GL20.GL_VERTEX_SHADER);
-            this.fontPipeline.addShader("grid_fragment_shader.frag",  GL20.GL_FRAGMENT_SHADER);
-            this.fontPipeline.link();
-
-            /*
-                Uniform buffer for the character data.
-             */
-            this.characters = new Characters(columns, rows, this.fontPipeline.getProgramID());
-
-            /*
-                Create bloom post-processing shader pipeline.
-             */
-            this.bloomPipeline = new Pipeline();
-            this.bloomPipeline.bindAttribLocation(0, "in_Position");
-            this.bloomPipeline.bindAttribLocation(1, "in_TextureCoord");
-            this.bloomPipeline.addShader("bloom_vertex_shader.vert",  GL20.GL_VERTEX_SHADER);
-            this.bloomPipeline.addShader("bloom_fragment_shader.frag",  GL20.GL_FRAGMENT_SHADER);
-            this.bloomPipeline.link();
-
-            /*
-                Create vertex arrays for the screen curvature.
-             */
-            grid = new Grid(400d, 300d, columns, rows, verticalCurvature, horizontalCurvature);
-
-            /*
-                Create texture atlas for the Font
-             */
-            this.font = new Font(Kaypro_II_font.get(), color, scanLineBreadth, fontThickness);
-
-        } catch (Exception ex) {
-            this.close();
-            throw(ex);
+        if (columns * rows > 4096) {
+            throw new Exception("The number of characters cannot be more than 4096. Please change the 'columns' or the 'rows' parameter.");
         }
+
+        if (!glfwInit()) {
+            throw new Exception("Cannot init GLFW.");
+        }
+
+        /*
+         * Create Window
+         */
+        long primaryMonitor = glfwGetPrimaryMonitor();
+        GLFWVidMode mode = glfwGetVideoMode(primaryMonitor);
+        int width = mode.width();
+        int height = mode.height();
+        glfwWindowHint(GLFW_RESIZABLE, 0);
+        glfwWindowHint(GLFW_STENCIL_BITS, 4);
+        glfwWindowHint(GLFW_SAMPLES, 4);
+        this.windowID = glfwCreateWindow(width, height, "Example OpenGL App", primaryMonitor, 0);
+        glfwMakeContextCurrent(this.windowID);
+        glfwShowWindow(this.windowID);
+        this.windowSize = new WindowSize(this.windowID);
+
+        /*
+         * Initialize OpenGL
+         */
+        GL.createCapabilities();
+        GL11.glEnable(GL13.GL_MULTISAMPLE);
+        //GL11.glEnable(GL11.GL_BLEND);
+        //GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+
+        /*
+            Create post-processing buffers
+         */
+        this.pingPongBuffer = new PingPongBuffer(width, height);
+        this.mixBuffer = new PingPongBuffer(width, height);
+
+        /*
+            Create font-rendering shader pipeline.
+         */
+        this.fontPipeline = new Pipeline();
+        this.fontPipeline.bindAttribLocation(0, "in_Position");
+        this.fontPipeline.bindAttribLocation(1, "in_TextureCoord");
+        this.fontPipeline.bindAttribLocation(2, "in_Number");
+        this.fontPipeline.addShader("grid_vertex_shader.vert",  GL20.GL_VERTEX_SHADER);
+        this.fontPipeline.addShader("character_fragment_shader.frag",  GL20.GL_FRAGMENT_SHADER);
+        this.fontPipeline.link();
+
+        /*
+            Uniform buffer for the character data.
+         */
+        this.characters = new Characters(columns, rows, this.fontPipeline.getProgramID());
+
+        /*
+            Create bloom post-processing shader pipeline.
+         */
+        this.bloomPipeline = new Pipeline();
+        this.bloomPipeline.bindAttribLocation(0, "in_Position");
+        this.bloomPipeline.bindAttribLocation(1, "in_TextureCoord");
+        this.bloomPipeline.addShader("default_vertex_shader.vert",  GL20.GL_VERTEX_SHADER);
+        this.bloomPipeline.addShader("gaussian_fragment_shader.frag",  GL20.GL_FRAGMENT_SHADER);
+        this.bloomPipeline.link();
+
+        /*
+            Copy shader pipeline
+         */
+        this.copyPipeline = new Pipeline();
+        this.copyPipeline.bindAttribLocation(0, "in_Position");
+        this.copyPipeline.bindAttribLocation(1, "in_TextureCoord");
+        this.copyPipeline.addShader("default_vertex_shader.vert",  GL20.GL_VERTEX_SHADER);
+        this.copyPipeline.addShader("copy_fragment_shader.frag",  GL20.GL_FRAGMENT_SHADER);
+        this.copyPipeline.link();
+
+        /*
+            Texture bender shader pipeline
+         */
+        this.mixPipeline = new Pipeline();
+        this.mixPipeline.bindAttribLocation(0, "in_Position");
+        this.mixPipeline.bindAttribLocation(1, "in_TextureCoord");
+        this.mixPipeline.addShader("default_vertex_shader.vert",  GL20.GL_VERTEX_SHADER);
+        this.mixPipeline.addShader("mix_fragment_shader.frag",  GL20.GL_FRAGMENT_SHADER);
+        this.mixPipeline.link();
+
+        int image1 = GL20.glGetUniformLocation(this.mixPipeline.getProgramID(), "image1");
+        int image2  = GL20.glGetUniformLocation(this.mixPipeline.getProgramID(), "image2");
+
+        GL20.glUseProgram(this.mixPipeline.getProgramID());
+        GL20.glUniform1i(image1, 0);
+        GL20.glUniform1i(image2,  1);
+        GL20.glUseProgram(0);
+
+        /*
+            Create vertex arrays for the screen curvature.
+         */
+        grid = new Grid(400d, 300d, columns, rows, verticalCurvature, horizontalCurvature);
+
+        /*
+            Create texture atlas for the Font
+         */
+        this.font = new Font(Kaypro_II_font.get(), color, scanLineBreadth, fontThickness);
     }
 
     /**
@@ -157,9 +188,24 @@ public class Terminal {
             this.bloomPipeline = null;
         }
 
+        if (this.copyPipeline != null) {
+            this.copyPipeline.close();
+            this.copyPipeline = null;
+        }
+
+        if (this.mixPipeline != null) {
+            this.mixPipeline.close();
+            this.mixPipeline = null;
+        }
+
         if (this.pingPongBuffer != null) {
             this.pingPongBuffer.close();
             this.pingPongBuffer = null;
+        }
+
+        if (this.mixBuffer != null) {
+            this.mixBuffer.close();
+            this.mixBuffer = null;
         }
 
         if (this.characters != null) {
@@ -186,18 +232,22 @@ public class Terminal {
             throw new Exception("renderFrame() was called on a closed Terminal instance.");
         }
 
-        if (this.windowSize.checkSize()) {
-            /*
-                The size of the client area changed, the framebuffers need to get resized.
-             */
-            if (this.windowSize.getWidth() > 10 && this.windowSize.getHeight() > 10) {
-                this.pingPongBuffer.resize();
-            }
-        }
+        boolean resized = this.windowSize.checkSize();
+
+        int width = this.windowSize.getWidth();
+        int height = this.windowSize.getHeight();
 
         // Skip render if the client area is too small
-        if (this.windowSize.getWidth() < 10 || this.windowSize.getHeight() < 10) {
+        if (width < 10 || height < 10) {
             return;
+        }
+
+        if (resized) {
+            /*
+                The size of the client area has changed, the framebuffers need to get resized.
+             */
+
+            this.pingPongBuffer.resize(width, height);
         }
 
         /*
@@ -205,33 +255,61 @@ public class Terminal {
          */
         this.pingPongBuffer.bindFrameBuffer();
 
-        GL11.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
-
         GL20.glUseProgram(this.fontPipeline.getProgramID());
+        {
+            GL11.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
-        GL13.glActiveTexture(GL13.GL_TEXTURE0);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.font.getTextureID());
+            GL13.glActiveTexture(GL13.GL_TEXTURE0);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.font.getTextureID());
 
-        this.grid.setupProjection(this.windowSize.getWidth(), this.windowSize.getHeight());
-        this.grid.draw();
+            this.grid.setupProjection(width, height);
+            this.grid.draw();
 
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        }
         GL20.glUseProgram(0);
 
         /*
-            Bloom (Render result directly to screen)
+            Fade out
          */
-        this.pingPongBuffer.unBindFrameBuffer();
+        this.mixBuffer.bindFrameBuffer();
 
-        GL20.glUseProgram(this.bloomPipeline.getProgramID());
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.pingPongBuffer.getFrontColorBufer());   // binding renderbuffer as texture?
+        GL20.glUseProgram(this.mixPipeline.getProgramID());
+        {
+            GL13.glActiveTexture(GL13.GL_TEXTURE0);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.mixBuffer.getBackTexture());
 
-        this.pingPongBuffer.setupProjection(this.windowSize.getWidth(), this.windowSize.getHeight());
-        this.pingPongBuffer.draw();
+            GL13.glActiveTexture(GL13.GL_TEXTURE1);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.pingPongBuffer.getFrontTexture());
 
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+            this.mixBuffer.setupProjection(width, height);
+            this.mixBuffer.draw();
+
+            GL13.glActiveTexture(GL13.GL_TEXTURE0);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+            GL13.glActiveTexture(GL13.GL_TEXTURE1);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        }
         GL20.glUseProgram(0);
+
+        /*
+            Draw to screen
+         */
+        this.mixBuffer.unBindFrameBuffer();
+
+        GL20.glUseProgram(this.copyPipeline.getProgramID());
+        {
+            GL13.glActiveTexture(GL13.GL_TEXTURE0);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.mixBuffer.getFrontTexture());
+
+            this.mixBuffer.draw();
+
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        }
+        GL20.glUseProgram(0);
+
+        this.mixBuffer.switchBuffers();
     }
 
     /**
