@@ -22,6 +22,8 @@ import static org.lwjgl.glfw.GLFW.*;
 
 
 public class Terminal {
+    private int columns;
+    private int rows;
     private boolean glfwInitialized;
     private long windowID;
     private Pipeline fontPipeline;
@@ -35,6 +37,11 @@ public class Terminal {
     private Pipeline bloomPipeline;
     private WindowSize windowSize;
     private PingPongBuffer mixBuffer;
+    private int uniform_dimensions;
+    private int uniform_scanlinePosition;
+    private float scanlinePosition = 0;
+    private int uniform_gaussianDirection = 0;
+    private int uniform_mixAttenuation = 0;
 
     /**
      * Initialize OpenGL, the resources, and go fullscreen.
@@ -49,6 +56,8 @@ public class Terminal {
      * @throws Exception Exceptions contain error texts.
      */
     public Terminal(int columns, int rows, int color, double scanLineBreadth, double fontThickness, double verticalCurvature, double horizontalCurvature) throws Exception {
+        this.columns = columns;
+        this.rows = rows;
         this.glfwInitialized = false;
         this.windowID = -1;
         this.fontPipeline = null;
@@ -90,8 +99,6 @@ public class Terminal {
          */
         GL.createCapabilities();
         GL11.glEnable(GL13.GL_MULTISAMPLE);
-        //GL11.glEnable(GL11.GL_BLEND);
-        //GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
 
         /*
             Create post-processing buffers
@@ -110,6 +117,9 @@ public class Terminal {
         this.fontPipeline.addShader("character_fragment_shader.frag",  GL20.GL_FRAGMENT_SHADER);
         this.fontPipeline.link();
 
+        this.uniform_dimensions = GL20.glGetUniformLocation(this.fontPipeline.getProgramID(), "dimensions");
+        this.uniform_scanlinePosition = GL20.glGetUniformLocation(this.fontPipeline.getProgramID(), "scanlinePosition");
+
         /*
             Uniform buffer for the character data.
          */
@@ -124,6 +134,8 @@ public class Terminal {
         this.bloomPipeline.addShader("default_vertex_shader.vert",  GL20.GL_VERTEX_SHADER);
         this.bloomPipeline.addShader("gaussian_fragment_shader.frag",  GL20.GL_FRAGMENT_SHADER);
         this.bloomPipeline.link();
+
+        this.uniform_gaussianDirection = GL20.glGetUniformLocation(this.bloomPipeline.getProgramID(), "in_direction");
 
         /*
             Copy shader pipeline
@@ -147,6 +159,7 @@ public class Terminal {
 
         int image1 = GL20.glGetUniformLocation(this.mixPipeline.getProgramID(), "image1");
         int image2  = GL20.glGetUniformLocation(this.mixPipeline.getProgramID(), "image2");
+        this.uniform_mixAttenuation = GL20.glGetUniformLocation(this.mixPipeline.getProgramID(), "in_attenuation");
 
         GL20.glUseProgram(this.mixPipeline.getProgramID());
         GL20.glUniform1i(image1, 0);
@@ -246,8 +259,12 @@ public class Terminal {
             /*
                 The size of the client area has changed, the framebuffers need to get resized.
              */
-
             this.pingPongBuffer.resize(width, height);
+        }
+
+        this.scanlinePosition += 0.1f;
+        if (this.scanlinePosition > this.rows) {
+            this.scanlinePosition = 0;
         }
 
         /*
@@ -257,6 +274,9 @@ public class Terminal {
 
         GL20.glUseProgram(this.fontPipeline.getProgramID());
         {
+            GL20.glUniform2f(this.uniform_dimensions, (float)this.columns, (float)this.rows);
+            GL20.glUniform1f(this.uniform_scanlinePosition,  this.scanlinePosition);
+
             GL11.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
             GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
@@ -274,16 +294,18 @@ public class Terminal {
             Fade out
          */
         this.mixBuffer.bindFrameBuffer();
+        this.mixBuffer.setupProjection(width, height);
 
         GL20.glUseProgram(this.mixPipeline.getProgramID());
         {
+            GL20.glUniform1f(this.uniform_mixAttenuation,  0.8f);
+
             GL13.glActiveTexture(GL13.GL_TEXTURE0);
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.mixBuffer.getBackTexture());
 
             GL13.glActiveTexture(GL13.GL_TEXTURE1);
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.pingPongBuffer.getFrontTexture());
 
-            this.mixBuffer.setupProjection(width, height);
             this.mixBuffer.draw();
 
             GL13.glActiveTexture(GL13.GL_TEXTURE0);
@@ -293,18 +315,66 @@ public class Terminal {
         }
         GL20.glUseProgram(0);
 
-        /*
-            Draw to screen
-         */
         this.mixBuffer.unBindFrameBuffer();
 
-        GL20.glUseProgram(this.copyPipeline.getProgramID());
+        /*
+            Bloom 1: horizontal blur
+         */
+        this.pingPongBuffer.bindFrameBuffer();
+
+        GL20.glUseProgram(this.bloomPipeline.getProgramID());
         {
+            GL20.glUniform2f(this.uniform_gaussianDirection, 1.0f, 0.0f);
             GL13.glActiveTexture(GL13.GL_TEXTURE0);
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.mixBuffer.getFrontTexture());
 
-            this.mixBuffer.draw();
+            this.pingPongBuffer.draw();
 
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        }
+        GL20.glUseProgram(0);
+
+        this.pingPongBuffer.unBindFrameBuffer();
+
+        /*
+            Bloom 2: vertical blur
+         */
+        this.pingPongBuffer.switchBuffers();
+        this.pingPongBuffer.bindFrameBuffer();
+
+        GL20.glUseProgram(this.bloomPipeline.getProgramID());
+        {
+            GL20.glUniform2f(this.uniform_gaussianDirection, 0.0f, 1.0f);
+            GL13.glActiveTexture(GL13.GL_TEXTURE0);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.pingPongBuffer.getBackTexture());
+
+            this.pingPongBuffer.draw();
+
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+        }
+        GL20.glUseProgram(0);
+
+        this.pingPongBuffer.unBindFrameBuffer();
+
+        /*
+            Bloom 3: Mix the blurred result with the original
+                        (Draw to screen)
+         */
+        GL20.glUseProgram(this.mixPipeline.getProgramID());
+        {
+            GL20.glUniform1f(this.uniform_mixAttenuation,  0.8f);
+
+            GL13.glActiveTexture(GL13.GL_TEXTURE0);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.pingPongBuffer.getFrontTexture());
+
+            GL13.glActiveTexture(GL13.GL_TEXTURE1);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.mixBuffer.getFrontTexture());
+
+            this.pingPongBuffer.draw();
+
+            GL13.glActiveTexture(GL13.GL_TEXTURE0);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+            GL13.glActiveTexture(GL13.GL_TEXTURE1);
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
         }
         GL20.glUseProgram(0);

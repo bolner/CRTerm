@@ -19,9 +19,10 @@ limitations under the License.
 in vec2 pass_TextureCoord;
 uniform sampler2D image1;
 uniform sampler2D image2;
+uniform float in_attenuation;
 out vec4 out_Color;
 
 
 void main() {
-	out_Color = max(texture(image1, pass_TextureCoord) * 0.9, texture(image2, pass_TextureCoord));
+	out_Color = max(texture(image1, pass_TextureCoord) * in_attenuation, texture(image2, pass_TextureCoord));
 }
