@@ -27,7 +27,6 @@ public class Terminal {
     private boolean glfwInitialized;
     private long windowID;
     private Pipeline fontPipeline;
-    private Pipeline copyPipeline;
     private Pipeline mixPipeline;
     private Grid grid;
     private Font font;
@@ -61,7 +60,6 @@ public class Terminal {
         this.glfwInitialized = false;
         this.windowID = -1;
         this.fontPipeline = null;
-        this.copyPipeline = null;
         this.mixPipeline = null;
         this.grid = null;
         this.font = null;
@@ -86,7 +84,7 @@ public class Terminal {
         GLFWVidMode mode = glfwGetVideoMode(primaryMonitor);
         int width = mode.width();
         int height = mode.height();
-        glfwWindowHint(GLFW_RESIZABLE, 0);
+        glfwWindowHint(GLFW_RESIZABLE, 1);
         glfwWindowHint(GLFW_STENCIL_BITS, 4);
         glfwWindowHint(GLFW_SAMPLES, 4);
         this.windowID = glfwCreateWindow(width, height, "Example OpenGL App", primaryMonitor, 0);
@@ -136,16 +134,6 @@ public class Terminal {
         this.bloomPipeline.link();
 
         this.uniform_gaussianDirection = GL20.glGetUniformLocation(this.bloomPipeline.getProgramID(), "in_direction");
-
-        /*
-            Copy shader pipeline
-         */
-        this.copyPipeline = new Pipeline();
-        this.copyPipeline.bindAttribLocation(0, "in_Position");
-        this.copyPipeline.bindAttribLocation(1, "in_TextureCoord");
-        this.copyPipeline.addShader("default_vertex_shader.vert",  GL20.GL_VERTEX_SHADER);
-        this.copyPipeline.addShader("copy_fragment_shader.frag",  GL20.GL_FRAGMENT_SHADER);
-        this.copyPipeline.link();
 
         /*
             Texture bender shader pipeline
@@ -199,11 +187,6 @@ public class Terminal {
         if (this.bloomPipeline != null) {
             this.bloomPipeline.close();
             this.bloomPipeline = null;
-        }
-
-        if (this.copyPipeline != null) {
-            this.copyPipeline.close();
-            this.copyPipeline = null;
         }
 
         if (this.mixPipeline != null) {
@@ -260,6 +243,11 @@ public class Terminal {
                 The size of the client area has changed, the framebuffers need to get resized.
              */
             this.pingPongBuffer.resize(width, height);
+            this.mixBuffer.resize(width, height);
+            GL11.glViewport(0, 0, width, height);
+
+            Thread.sleep(100);
+            return;
         }
 
         this.scanlinePosition += 0.1f;
@@ -271,6 +259,7 @@ public class Terminal {
             Render text to framebuffer object
          */
         this.pingPongBuffer.bindFrameBuffer();
+        this.grid.setupProjection(width, height);
 
         GL20.glUseProgram(this.fontPipeline.getProgramID());
         {
@@ -283,7 +272,6 @@ public class Terminal {
             GL13.glActiveTexture(GL13.GL_TEXTURE0);
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.font.getTextureID());
 
-            this.grid.setupProjection(width, height);
             this.grid.draw();
 
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
@@ -298,7 +286,7 @@ public class Terminal {
 
         GL20.glUseProgram(this.mixPipeline.getProgramID());
         {
-            GL20.glUniform1f(this.uniform_mixAttenuation,  0.8f);
+            GL20.glUniform1f(this.uniform_mixAttenuation,  0.7f);
 
             GL13.glActiveTexture(GL13.GL_TEXTURE0);
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.mixBuffer.getBackTexture());

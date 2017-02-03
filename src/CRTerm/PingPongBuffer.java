@@ -22,31 +22,43 @@ import java.nio.*;
 
 
 class PingPongBuffer {
+    private FloatBuffer vertex_data = BufferUtils.createFloatBuffer(20);
     private int frontBufferIndex;  // 0, 1
-    private int[] frameBuffers;
-    private int[] colorBuffers;
-    private int[] depthBuffers;
+    private int[] frameBuffers = new int[2];
+    private int[] colorBuffers = new int[2];
+    private int[] depthBuffers = new int[2];
     private int vertexBuffer;
 
+    /**
+     * Create a ping pong buffer for shader pipeline.
+     * @param width Width of the client area.
+     * @param height Height of the client area.
+     * @throws Exception Throws error.
+     */
     PingPongBuffer(int width, int height) throws Exception {
-        this.vertexBuffer = -1;
-        this.frameBuffers = new int[2];
-        this.frameBuffers[0] = -1;
-        this.frameBuffers[1] = -1;
-        this.colorBuffers = new int[2];
-        this.colorBuffers[0] = -1;
-        this.colorBuffers[1] = -1;
-        this.depthBuffers = new int[2];
-        this.depthBuffers[0] = -1;
-        this.depthBuffers[1] = -1;
-        this.frontBufferIndex = 0;
-
-        /*
-            Create framebuffer
-         */
         if (!GL.getCapabilities().GL_EXT_framebuffer_object) {
             throw new Exception("Your version of OpenGL doesn't support framebuffers.");
         }
+
+        this.init(width, height);
+    }
+
+    /**
+     * Used in the constructor and for resizing.
+     *
+     * @param width Width of the client area.
+     * @param height Height of the client area.
+     * @throws Exception Throws error.
+     */
+    private void init(int width, int height) throws Exception {
+        this.vertexBuffer = -1;
+        this.frameBuffers[0] = -1;
+        this.frameBuffers[1] = -1;
+        this.colorBuffers[0] = -1;
+        this.colorBuffers[1] = -1;
+        this.depthBuffers[0] = -1;
+        this.depthBuffers[1] = -1;
+        this.frontBufferIndex = 0;
 
         /*
             Create framebuffers
@@ -59,10 +71,6 @@ class PingPongBuffer {
             }
 
             GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, this.frameBuffers[i]);
-
-            if (this.frameBuffers[i] < 1) {
-                throw new Exception("Unable to create framebuffer. (PingPongBuffer)");
-            }
 
             /*
                 Create color buffer texture
@@ -106,7 +114,8 @@ class PingPongBuffer {
         /*
             Create vertex buffer for a full-screen quad
          */
-        FloatBuffer vertex_data = BufferUtils.createFloatBuffer(20);
+        this.vertex_data.clear();
+
         vertex_data.put(new float[]{
                 0.0f, 0.0f, 0.0f,                       0.0f, 0.0f,
                 (float)width, 0.0f, 0.0f,              1.0f, 0.0f,
@@ -129,9 +138,9 @@ class PingPongBuffer {
      * Release OpenGL resources
      */
     void close() {
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
-
         for(int i = 0; i < 2; i++) {
+            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+
             if (this.colorBuffers[i] > -1) {
                 GL11.glDeleteTextures(this.colorBuffers[i]);
                 this.colorBuffers[i] = -1;
@@ -141,9 +150,7 @@ class PingPongBuffer {
                 GL11.glDeleteTextures(this.depthBuffers[i]);
                 this.depthBuffers[i] = -1;
             }
-        }
 
-        for(int i = 0; i < 2; i++) {
             if (this.frameBuffers[i] > -1) {
                 GL30.glDeleteFramebuffers(this.frameBuffers[i]);
                 this.frameBuffers[i] = -1;
@@ -220,8 +227,13 @@ class PingPongBuffer {
 
     /**
      * Resizes the framebuffers.
+     *
+     * @param width Width of the client area.
+     * @param height Height of the client area.
+     * @throws Exception Throws error.
      */
-    void resize(int width, int height) {
-        // todo
+    void resize(int width, int height) throws Exception {
+        this.close();
+        this.init(width, height);
     }
 }

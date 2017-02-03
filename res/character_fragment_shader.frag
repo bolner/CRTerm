@@ -37,12 +37,12 @@ void main(void) {
 
     if (scanlinePosition > dimensions.y - lineWidth) {
         if (line < scanlinePosition + lineWidth - dimensions.y) {
-            plus = 0.08;
+            plus = 0.04;
         }
     }
 
     if (line > scanlinePosition && line < scanlinePosition + lineWidth) {
-        plus = 0.08;
+        plus = 0.04;
     }
 
     /*
