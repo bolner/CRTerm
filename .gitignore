@@ -10,6 +10,7 @@
 !/doc
 !/doc/CRTerm
 !/doc/index-files
+!/doc/img
 
 # Allow file types
 !.gitignore
@@ -21,3 +22,4 @@
 !/doc/*.js
 !/doc/*.css
 !package-list
+!/doc/img/*.png
