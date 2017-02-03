@@ -9,7 +9,7 @@ Demo on Youtube:
 
 ## Dependencies
 
-- The only dependency is the LWJGL library. These files need to be linked with the project:
+- The only dependency is the [LWJGL library](https://www.lwjgl.org/). These files need to be linked with the project:
     - lwjgl.jar, lwjgl-natives-windows.jar, lwjgl-glfw.jar, lwjgl-glfw-natives-windows.jar, lwjgl-opengl.jar, lwjgl-opengl-natives-windows.jar
 
 ## Features
@@ -18,9 +18,16 @@ Demo on Youtube:
 - The texture atlas of the font is generated according to input parameters. Both the distance between the scanlines and the width of the dots can be changed.
 - The characters have a modest shining appearance, applied through a bloom post-processing effect.
 - A scanline passes through the screen in fixed intervals, simulating a common problem of old CRT displays.
-- All characters can be fully changed for each frame render.
+- All characters can be fully changed for each frame render. Provides direct access to the internal character array for efficient manipulation.
 - Simulates the gradual fade-out of the characters.
 
 The font is generated on the fly according to the input parameters. This is an example render, based on the Kaypro II character set:
 
 ![Character set - texture atlas](/doc/img/character_set.png)
+
+## Usage
+
+- Instantiate the CRTerm.Terminal to display the main window. See the doc folder about the parameters.
+- Use the "setCharacters" or directly manipulate the character array accessed through "getCharacterArray". After the modifications upload the characters to the GPU, using "uploadCharacterArray".
+- See an example application at: [/src/TestApp/Main.java](https://github.com/bolner/CRTerm/blob/master/src/TestApp/Main.java) 
+- Handle the keyboard inputs using the LWJGL functions. (Using the Window ID)
