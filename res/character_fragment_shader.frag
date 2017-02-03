@@ -54,7 +54,7 @@ void main(void) {
     float y = float(char / 16) / 8;
 
 	out_Color = texture(image1, vec2(
-        x + pass_TextureCoord.x * 0.046875,
+        x + pass_TextureCoord.x * 0.046875 + plus / 8.0,
         y + pass_TextureCoord.y / 8
 	)) + vec4(0, 1, 0, 1) * plus;
 }
