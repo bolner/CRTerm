@@ -23,4 +23,4 @@ Demo on Youtube:
 
 The font is generated on the fly according to the input parameters. This is an example render, based on the Kaypro II character set:
 
-[![Character set - texture atlas](/doc/img/character_set.png)]
+![Character set - texture atlas](/doc/img/character_set.png)
