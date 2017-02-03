@@ -10,7 +10,9 @@ Demo on Youtube:
 ## Dependencies
 
 - The only dependency is the [LWJGL library](https://www.lwjgl.org/). These files need to be linked with the project:
-    - lwjgl.jar, lwjgl-natives-windows.jar, lwjgl-glfw.jar, lwjgl-glfw-natives-windows.jar, lwjgl-opengl.jar, lwjgl-opengl-natives-windows.jar
+    - **Windows:** lwjgl.jar, lwjgl-natives-windows.jar, lwjgl-glfw.jar, lwjgl-glfw-natives-windows.jar, lwjgl-opengl.jar, lwjgl-opengl-natives-windows.jar
+    - **Linux:** lwjgl.jar, lwjgl-natives-linux.jar, lwjgl-glfw.jar, lwjgl-glfw-natives-linux.jar, lwjgl-opengl.jar, lwjgl-opengl-natives-linux.jar
+    - **MacOS:** lwjgl.jar, lwjgl-natives-macos.jar, lwjgl-glfw.jar, lwjgl-glfw-natives-macos.jar, lwjgl-opengl.jar, lwjgl-opengl-natives-macos.jar
 
 ## Features
 
